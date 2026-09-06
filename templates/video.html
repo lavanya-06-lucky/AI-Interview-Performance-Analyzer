@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Record</title>
+<style>
+body{font-family:Arial;background:#f4f6f8;display:flex;justify-content:center;align-items:center;height:100vh}
+.card{background:#fff;padding:20px;border-radius:12px;width:380px;text-align:center}
+button{padding:10px;margin:5px;border-radius:8px;border:none}
+.start{background:#4caf50;color:#fff}
+.stop{background:#f44336;color:#fff}
+.upload{background:#2196f3;color:#fff}
+video{width:100%;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h2>Record Video</h2>
+
+<button class="start" onclick="start()">Start</button>
+<button class="stop" onclick="stop()" disabled>Stop</button>
+
+<video id="preview" controls></video>
+
+<button class="upload" onclick="upload()" disabled>Upload</button>
+
+<div id="status"></div>
+</div>
+
+<script>
+let recorder, stream, blob;
+const status = document.getElementById("status");
+const preview = document.getElementById("preview");
+
+async function start(){
+  stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  recorder = new MediaRecorder(stream);
+  let chunks=[];
+
+  recorder.ondataavailable=e=>chunks.push(e.data);
+  recorder.onstop=()=>{
+    blob=new Blob(chunks,{type:"video/webm"});
+    preview.src=URL.createObjectURL(blob);
+  };
+
+  recorder.start();
+  status.innerText="🎙 Recording started";
+  document.querySelector(".start").disabled=true;
+  document.querySelector(".stop").disabled=false;
+}
+
+function stop(){
+  recorder.stop();
+  stream.getTracks().forEach(t=>t.stop());
+  status.innerText="⏹ Recording stopped";
+  document.querySelector(".start").disabled=false;
+  document.querySelector(".stop").disabled=true;
+  document.querySelector(".upload").disabled=false;
+}
+
+function upload(){
+  status.innerText="⬆ Uploading...";
+  const fd=new FormData();
+  fd.append("file",blob);
+
+  fetch("/upload",{method:"POST",body:fd})
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d.success){alert(d.error);return;}
+
+    status.innerText="✅ Uploaded successfully";
+
+    // hide video & buttons
+    preview.style.display="none";
+    document.querySelectorAll("button").forEach(b=>b.style.display="none");
+
+    sessionStorage.setItem("result",JSON.stringify(d.result));
+    setTimeout(()=>window.location.href="/result",800);
+  });
+}
+</script>
+
+</body>
+</html>
